@@ -3,6 +3,7 @@ import atexit
 import uuid
 
 from sentence_transformers import SentenceTransformer
+from pathlib import Path
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
@@ -18,7 +19,11 @@ COLLECTION_NAME = "enterprise_documents"
 VECTOR_SIZE = 384
 
 # Initialize local Qdrant database
-client = QdrantClient(path="qdrant_storage")
+
+client = QdrantClient(
+    path=str(Path(__file__).resolve().parent / "qdrant_storage")
+)
+
 
 # Close Qdrant during normal Python shutdown
 atexit.register(client.close)

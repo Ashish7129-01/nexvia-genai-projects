@@ -1,4 +1,3 @@
- 
 from pathlib import Path
 
 from fastapi import (
@@ -25,7 +24,7 @@ app = FastAPI(
     version="0.6.0",
 )
 
-RAW_DIR = Path("data/raw")
+RAW_DIR = Path(__file__).resolve().parent / "data" / "raw"
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -54,7 +53,6 @@ def get_current_user(
 
     try:
         payload = decode_access_token(credentials.credentials)
-
     except ValueError:
         raise HTTPException(
             status_code=401,
@@ -63,7 +61,6 @@ def get_current_user(
         )
 
     username = payload["sub"]
-
     users = load_users()
     user = users.get(username)
 
@@ -103,8 +100,6 @@ async def upload_document(
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
 ):
-
-    # Only administrators can upload documents
     if current_user["role"] != "admin":
         raise HTTPException(
             status_code=403,
@@ -113,17 +108,14 @@ async def upload_document(
 
     filename = Path(file.filename or "").name
 
-    # Validate file type
     if Path(filename).suffix.lower() not in {".pdf", ".docx"}:
         raise HTTPException(
             status_code=400,
             detail="Only PDF and DOCX files are supported.",
         )
 
-    # Read uploaded file
     content = await file.read(10 * 1024 * 1024 + 1)
 
-    # Check file size
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(
             status_code=413,
@@ -136,10 +128,8 @@ async def upload_document(
             detail="The uploaded file is empty.",
         )
 
-    # Process document
     try:
         chunks = process_document(content, filename)
-
     except Exception as exc:
         raise HTTPException(
             status_code=400,
@@ -152,16 +142,12 @@ async def upload_document(
             detail="No extractable text found.",
         )
 
-    # Assign access permissions to uploaded chunks
-    # Admin-only by default, until explicit sharing is added.
     for chunk in chunks:
         chunk["allowed_roles"] = ["admin"]
 
-    # Store document
     destination = RAW_DIR / filename
     destination.write_bytes(content)
 
-    # Store vectors in Qdrant
     stored_count = store_chunks(chunks)
 
     return {
@@ -180,29 +166,31 @@ def ask_question(
     request: QuestionRequest,
     current_user: dict = Depends(get_current_user),
 ):
-
     try:
         answer = run_rag_pipeline(
             query=request.question,
             user_role=current_user["role"],
         )
 
+        return {
+            "question": request.question,
+            "answer": answer,
+        }
+
     except Exception as exc:
+        import traceback
+        print("RAG PIPELINE ERROR:")
+        traceback.print_exc()
+
         raise HTTPException(
             status_code=500,
             detail="Could not generate an answer.",
         ) from exc
 
-    return {
-        "question": request.question,
-        "answer": answer,
-    }
-
 
 # Login endpoint
 @app.post("/login")
 def login(request: LoginRequest):
-
     user = authenticate_user(
         request.username,
         request.password,
@@ -219,7 +207,6 @@ def login(request: LoginRequest):
             username=user["username"],
             role=user["role"],
         )
-
     except RuntimeError as exc:
         raise HTTPException(
             status_code=503,

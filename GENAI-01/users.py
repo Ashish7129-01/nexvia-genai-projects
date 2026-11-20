@@ -5,7 +5,9 @@ from pathlib import Path
 from auth import hash_password, verify_password
 
 # Local user database for development
-USERS_FILE = Path("data/users.json")
+
+USERS_FILE = Path(__file__).resolve().parent / "data" / "users.json"
+
 
 VALID_ROLES = {"admin", "employee"}
 

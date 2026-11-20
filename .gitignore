@@ -33,3 +33,11 @@ data/raw/
 Thumbs.db
 
 main_backup_step51.py
+GENAI-01/data/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+.venv/
+venv/
